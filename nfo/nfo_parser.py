@@ -43,7 +43,8 @@ class Movie:
         self.actors = actors
 
     def __repr__(self) -> str:
-        return f"Movie(title='{self.title}', uniqueid='{self.uniqueid}')"
+        return (f"Movie(title='{self.title}', uniqueid='{self.uniqueid}'"
+                f", actors='{self.actors}')")
 
 
 class MovieBuilder:
