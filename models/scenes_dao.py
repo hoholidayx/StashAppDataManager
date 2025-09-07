@@ -1,6 +1,6 @@
 import sqlite3
-from typing import Optional, List, Any, Tuple
 from datetime import datetime
+from typing import Optional, List, Any, Tuple
 
 
 class Scenes:
@@ -47,20 +47,14 @@ class ScenesDAO:
     用于操作 scenes 表的 DAO 类。
     """
 
-    def __init__(self, db_path: str):
-        self.db_path = db_path
-        self._conn: Optional[sqlite3.Connection] = None
-        self._cursor: Optional[sqlite3.Cursor] = None
-
-    def __enter__(self):
-        self._conn = sqlite3.connect(self.db_path)
-        self._cursor = self._conn.cursor()
-        return self
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        if self._conn:
-            self._conn.commit()
-            self._conn.close()
+    def __init__(self, db_conn: sqlite3.Connection):
+        """
+        初始化 DAO，但不立即连接数据库。
+        :param db_conn: SQLite 数据库链接。
+        """
+        # self.db_path = db_path
+        self._conn: Optional[sqlite3.Connection] = db_conn
+        self._cursor: Optional[sqlite3.Cursor] = db_conn.cursor()
 
     def _execute(self, query: str, params: Tuple[Any, ...] = ()) -> sqlite3.Cursor:
         """

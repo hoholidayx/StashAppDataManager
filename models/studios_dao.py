@@ -47,34 +47,14 @@ class StudiosDAO:
     用于操作 studios 表的 DAO 类。
     """
 
-    def __init__(self, db_path: str):
+    def __init__(self, db_conn: sqlite3.Connection):
         """
         初始化 DAO，但不立即连接数据库。
-        :param db_path: SQLite 数据库文件的路径。
+        :param db_conn: SQLite 数据库链接。
         """
-        self.db_path = db_path
-        self._conn: Optional[sqlite3.Connection] = None
-        self._cursor: Optional[sqlite3.Cursor] = None
-
-    def __enter__(self):
-        """
-        进入上下文，建立数据库连接。
-        """
-        self._conn = sqlite3.connect(self.db_path)
-        self._cursor = self._conn.cursor()
-        print(f"成功连接到数据库: {self.db_path}")
-        return self
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        """
-        退出上下文，提交事务并关闭连接。
-        """
-        if self._conn:
-            self._conn.commit()
-            self._conn.close()
-            print("数据库连接已关闭。")
-        if exc_val:
-            print(f"操作中发生错误: {exc_val}")
+        # self.db_path = db_path
+        self._conn: Optional[sqlite3.Connection] = db_conn
+        self._cursor: Optional[sqlite3.Cursor] = db_conn.cursor()
 
     def _execute(self, query: str, params: Tuple[Any, ...] = ()) -> sqlite3.Cursor:
         """
