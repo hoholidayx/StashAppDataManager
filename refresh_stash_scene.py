@@ -6,8 +6,9 @@ from typing import List
 
 from MyLogger import CustomLogger
 from db.db_manager import Database
-from models.scenes_dao import ScenesDAO
-from nfo.nfo_parser import parse_nfo_to_movie
+from models.scenes_dao import ScenesDAO, Scenes
+from models.studios_dao import StudiosDAO, Studios
+from nfo.nfo_parser import parse_nfo_to_movie, Movie
 
 # 初始化日志记录器
 logger = CustomLogger(__name__)
@@ -22,6 +23,25 @@ SCENE_FILE_SUBFIX = ['.mp4', '.mkv', '.avi', '.mov']
 SCENE_COVER_FILE_NAME = 'poster.jpg'
 # 影片的nfo文件名
 SCENE_NFO_FILE_NAME = 'movie.nfo'
+
+
+def update_scene_title(scene_dao: ScenesDAO, scene_record: Scenes, info: Movie):
+    """
+    更新短片标题。
+    使用 nfo 的 title 更新到 scenes 表 title 字段
+    :param scene_dao:
+    :param scene_record:
+    :param info:
+    :return:更新是否成功
+    """
+    scene_record.title = info.title
+    try:
+        scene_dao.update(scene_record)
+        scene_dao.commit()
+    except Exception as ex:
+        logger.error(f"更新短片标题失败: {ex}", exc_info=True)
+        return False
+    return True
 
 
 def find_files_by_code(folder_path: str, movie_code: str, file_suffixes: List[str]) -> List[str]:
@@ -114,6 +134,63 @@ def update_cover(scenes_dao: ScenesDAO, img_path: str):
     return True
 
 
+def update_scene_date(scene_dao: ScenesDAO, scene_record: Scenes, info: Movie):
+    """
+        更新短片发行日期。
+        使用 nfo 的 premiered 更新到 scenes 表 date 字段
+        :param scene_dao:
+        :param scene_record:
+        :param info:
+        :return:更新是否成功
+    """
+    scene_record.date = info.premiered
+    try:
+        scene_dao.update(scene_record)
+        scene_dao.commit()
+    except Exception as ex:
+        logger.error(f"更新短片发行日期失败: {ex}", exc_info=True)
+        return False
+    return True
+
+
+def update_scene_studio(scene_dao: ScenesDAO, studio_dao: StudiosDAO, scene_record: Scenes, info: Movie):
+    """
+        更新短片工作室。
+        1. 根据名movie studio字段，查询 studios 表当前工作室记录是否存在
+        2. 如存记录存在，直接更新 scene studio id
+        3. 记录不存在，先在 studios 创建记录
+        :param scene_dao:
+        :param scene_record:
+        :param studio_dao:
+        :param info:
+        :return:更新是否成功
+    """
+    studio_name = info.studio
+    studio_record = studio_dao.get_by_name(studio_name)
+    if studio_record is None:
+        studio_record = Studios(name=studio_name)
+        studio_id = studio_dao.insert(studio_record)
+        studio_dao.commit()
+        if studio_id is None:
+            logger.error(f"工作室:{studio_name} 记录创建失败!")
+            return False
+        logger.info(f"找不到工作室:{studio_name}，已创建新工作室记录:{studio_id}")
+    else:
+        studio_id = studio_record.id
+        logger.info(f"找到已存在工作室记录:{studio_record}")
+
+    scene_record.studio_id = studio_id
+    try:
+        scene_dao.update(scene_record)
+        scene_dao.commit()
+    except Exception as ex:
+        logger.error(f"更新短片工作室失败: {ex}", exc_info=True)
+        return False
+    return True
+
+def update_scene_gallery():
+    pass
+
 def process_folder(folder_path):
     """
     一个处理文件夹的示例函数。
@@ -166,6 +243,38 @@ def process_folder(folder_path):
             logger.info(f"已从 scenes_files 表找到对应的 scene 记录，scene_id:{scene_file_record.scene_id}")
 
         # 5. 查找对应的 Scene 记录
+        scene_record = dbm.scenes.get_by_id(scene_file_record.scene_id)
+        if scene_record is None:
+            logger.error(f"scenes 表无匹配记录,找不到对应 scene！")
+            return
+
+        # 6. 更新短片标题
+        old_title = scene_record.title
+        title_update_ret = update_scene_title(dbm.scenes, scene_record, movie_info)
+        if title_update_ret:
+            logger.info(f"标题更新成功:{old_title} ==> {scene_record.title}")
+        else:
+            logger.warning(f"标题更新失败")
+
+        # 7. 更新短片发布时间
+        old_date = scene_record.date
+        date_update_ret = update_scene_date(dbm.scenes, scene_record, movie_info)
+        if date_update_ret:
+            logger.info(f"发行日期更新成功:{old_date} ==> {scene_record.date}")
+        else:
+            logger.warning(f"发行日期更新失败")
+
+        # 8. 更新短片工作室
+        old_studio_id = scene_record.studio_id
+        studio_update_ret = update_scene_studio(dbm.scenes, dbm.studios, scene_record, movie_info)
+        if studio_update_ret:
+            logger.info(f"短片工作室更新成功:{old_studio_id} ==> {scene_record.studio_id}")
+        else:
+            logger.warning(f"短片工作室更新失败")
+
+
+        # 9. 更新短片剧照(画廊)
+        scene_gallery_update_ret = update_scene_gallery()
 
         # 2. 更新封面图
         cover_img = os.path.join(folder_path, SCENE_COVER_FILE_NAME)

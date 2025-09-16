@@ -156,3 +156,10 @@ class ScenesDAO:
         query = "DELETE FROM scenes WHERE id = ?"
         self._execute(query, (scenes_id,))
         return self._cursor.rowcount
+
+    def commit(selfs) -> bool:
+        if selfs._conn:
+            selfs._conn.commit()
+            return True
+        else:
+            return False

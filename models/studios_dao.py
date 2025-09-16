@@ -148,6 +148,19 @@ class StudiosDAO:
             print(f"检索时出错: {e}")
             return None
 
+    def get_by_name(self, studio_name: str) -> Optional[Studios]:
+        """
+        根据 ID 查询单条记录。
+        """
+        try:
+            query = "SELECT * FROM studios WHERE name = ?"
+            self._execute(query, (studio_name,))
+            row = self._cursor.fetchone()
+            return self._row_to_studios(row)
+        except sqlite3.Error as e:
+            print(f"检索时出错: {e}")
+            return None
+
     def get_all(self) -> List[Studios]:
         """
         查询所有记录。
@@ -204,3 +217,10 @@ class StudiosDAO:
         except sqlite3.Error as e:
             print(f"删除时出错: {e}")
             return 0
+
+    def commit(selfs) -> bool:
+        if selfs._conn:
+            selfs._conn.commit()
+            return True
+        else:
+            return False
