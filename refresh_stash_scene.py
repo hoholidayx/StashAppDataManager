@@ -7,7 +7,9 @@ from typing import List
 from MyLogger import CustomLogger
 from db.db_manager import Database
 from models.scenes_dao import ScenesDAO, Scenes
+from models.scenes_tags_dao import ScenesTags
 from models.studios_dao import StudiosDAO, Studios
+from models.tags_dao import Tags
 from nfo.nfo_parser import parse_nfo_to_movie, Movie
 
 # 初始化日志记录器
@@ -188,8 +190,67 @@ def update_scene_studio(scene_dao: ScenesDAO, studio_dao: StudiosDAO, scene_reco
         return False
     return True
 
+
+def update_scene_tags(dbm, scene_record, info):
+    """
+        更新短片标签。
+        1. 遍历 info 中的 genres 标签列表
+        2. 检查 tags 表对应名称的标签是否已存在
+        3. 记录不存在，先在 tags 创建记录
+        4. 最后更新 scenes_tags 表建立映射关系
+        :return:更新是否成功
+    """
+    tags = info.genres
+    if tags is None or len(tags) == 0:
+        logger.warning(f"影片信息无任何标签!")
+        return False
+    logger.info(f"准备更新 {len(tags)} 个标签:[{','.join(tags)}]")
+
+    # 检查标签是否都存在
+    for tag in tags:
+        db_result = dbm.tags.get_by_name(tag)
+        if db_result is None or len(db_result) == 0:
+            logger.info(f"标签[{tag}]不存在,准备创建...")
+            tag_obj = Tags(name=tag)
+            tag_obj_id = dbm.tags.insert(tag_obj)
+            if tag_obj_id is None:
+                logger.error(f"标签[{tag}]创建失败！")
+                # 标签创建异常，尝试下一个
+                continue
+            logger.info(f"标签[{tag}]创建成功, id:{tag_obj_id}！")
+
+    # 重新查询数据库
+    tag_obj_list = list()
+    for tag in tags:
+        tag_objs = dbm.tags.get_by_name(tag)
+        if tag_objs is None or len(tag_objs) == 0:
+            # 查询不到标签，跳过
+            logger.warning(f"标签[{tag}]不存在，跳过")
+            continue
+        # 取匹配的第一个就行
+        tag_obj_list.append(tag_objs[0])
+
+    # 建立映射
+    new_scene_tag_record_count = 0
+    old_scene_tag_record_count = 0
+    for tag_obj in tag_obj_list:
+        # 检查映射记录是否已存在
+        scene_tag_record = dbm.scenes_tags.get_by_ids(scene_id=scene_record.id, tag_id=tag_obj.id)
+        if scene_tag_record is not None:
+            old_scene_tag_record_count += 1
+            continue
+        # 无映射记录，新建
+        scene_tag_record = ScenesTags(scene_id=scene_record.id, tag_id=tag_obj.id)
+        row_count = dbm.scenes_tags.insert(scene_tag_record)
+        new_scene_tag_record_count += row_count
+    logger.info(f"已完成标签更新,新增数量:{new_scene_tag_record_count}"
+                f"，已有数量:{old_scene_tag_record_count}")
+    return True
+
+
 def update_scene_gallery():
-    pass
+    return False
+
 
 def process_folder(folder_path):
     """
@@ -272,9 +333,15 @@ def process_folder(folder_path):
         else:
             logger.warning(f"短片工作室更新失败")
 
+        # 10. 更新标签
+        tags_update_ret = update_scene_tags(dbm, scene_record, movie_info)
+        if tags_update_ret:
+            logger.info(f"短片标签更新成功")
+        else:
+            logger.warning(f"短片标签更新失败")
 
         # 9. 更新短片剧照(画廊)
-        scene_gallery_update_ret = update_scene_gallery()
+        gallery_update_ret = update_scene_gallery()
 
         # 2. 更新封面图
         cover_img = os.path.join(folder_path, SCENE_COVER_FILE_NAME)

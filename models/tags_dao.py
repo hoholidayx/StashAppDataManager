@@ -137,7 +137,20 @@ class TagsDAO:
             row = self._cursor.fetchone()
             return self._row_to_tags(row)
         except sqlite3.Error as e:
-            print(f"检索时出错: {e}")
+            print(f"检索 id 时出错: {e}")
+            return None
+
+    def get_by_name(self, tag_name: str) -> List[Tags]:
+        """
+        根据 ID 查询单条记录。
+        """
+        try:
+            query = "SELECT * FROM tags WHERE name = ?"
+            self._execute(query, (tag_name,))
+            rows = self._cursor.fetchall()
+            return [self._row_to_tags(row) for row in rows]
+        except sqlite3.Error as e:
+            print(f"检索 name 时出错: {e}")
             return None
 
     def get_all(self) -> List[Tags]:
