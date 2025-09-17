@@ -33,7 +33,6 @@ class ScenesTagsDAO:
         初始化 DAO，但不立即连接数据库。
         :param db_conn: SQLite 数据库链接。
         """
-        # self.db_path = db_path
         self._conn: Optional[sqlite3.Connection] = db_conn
         self._cursor: Optional[sqlite3.Cursor] = db_conn.cursor()
 
@@ -128,6 +127,53 @@ class ScenesTagsDAO:
         except sqlite3.Error as e:
             print(f"根据标签 ID 检索时出错: {e}")
             return []
+
+    def update(self, old_scene_id: int, old_tag_id: int, new_scene_id: int, new_tag_id: int) -> int:
+        """
+        更新一条现有关联记录。
+        这会将一个存在的 (scene_id, tag_id) 对替换为新的对。
+        :param old_scene_id: 要更新的原始场景 ID。
+        :param old_tag_id: 要更新的原始标签 ID。
+        :param new_scene_id: 新的场景 ID。
+        :param new_tag_id: 新的标签 ID。
+        :return: 更新的行数，如果更新失败则返回 0。
+        """
+        try:
+            query = """
+                UPDATE scenes_tags
+                SET scene_id = ?, tag_id = ?
+                WHERE scene_id = ? AND tag_id = ?
+            """
+            params = (new_scene_id, new_tag_id, old_scene_id, old_tag_id)
+            self._execute(query, params)
+            row_count = self._cursor.rowcount
+            print(f"成功更新 {row_count} 条记录: "
+                  f"from (scene_id={old_scene_id}, tag_id={old_tag_id}) "
+                  f"to (scene_id={new_scene_id}, tag_id={new_tag_id})")
+            return row_count
+        except sqlite3.Error as e:
+            print(f"更新时出错: {e}")
+            return 0
+
+    def update_or_insert(self, scene_id: int, tag_id: int) -> int:
+        """
+        更新或插入一条关联记录 (Upsert)。
+        如果 (scene_id, tag_id) 的组合已存在，则不执行任何操作。
+        如果不存在，则插入新记录。
+        :param scene_id: 场景 ID。
+        :param tag_id: 标签 ID。
+        :return: 受影响的行数 (0 表示已存在或出错，1 表示新插入)。
+        """
+        try:
+            query = "INSERT OR IGNORE INTO scenes_tags (scene_id, tag_id) VALUES (?, ?)"
+            self._execute(query, (scene_id, tag_id))
+            row_count = self._cursor.rowcount
+            if row_count > 0:
+                print(f"成功插入 {row_count} 条记录: (scene_id={scene_id}, tag_id={tag_id})")
+            return row_count
+        except sqlite3.Error as e:
+            print(f"插入时出错: {e}")
+            return 0
 
     def delete(self, scene_id: int, tag_id: int) -> int:
         """
