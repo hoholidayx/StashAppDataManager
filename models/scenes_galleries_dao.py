@@ -1,6 +1,5 @@
 import sqlite3
 from typing import Optional, List, Any, Tuple
-from datetime import datetime
 
 
 class ScenesGalleries:
@@ -34,7 +33,6 @@ class ScenesGalleriesDAO:
         初始化 DAO，但不立即连接数据库。
         :param db_conn: SQLite 数据库链接。
         """
-        # self.db_path = db_path
         self._conn: Optional[sqlite3.Connection] = db_conn
         self._cursor: Optional[sqlite3.Cursor] = db_conn.cursor()
 
@@ -89,11 +87,25 @@ class ScenesGalleriesDAO:
             """
             self._execute(query, (scene_id, gallery_id))
             row_count = self._cursor.rowcount
-            print(f"成功插入 {row_count} 条记录: (scene_id={scene_id}, gallery_id={gallery_id})")
+            if row_count > 0:
+                print(f"成功插入 {row_count} 条记录: (scene_id={scene_id}, gallery_id={gallery_id})")
             return row_count
         except sqlite3.Error as e:
             print(f"插入时出错: {e}")
             return 0
+
+    def update_or_insert(self, scene_id: int, gallery_id: int) -> int:
+        """
+        更新或插入一条关联记录 (Upsert)。
+        如果 (scene_id, gallery_id) 的组合已存在，则不执行任何操作。
+        如果不存在，则插入新记录。
+        :param scene_id: 场景 ID。
+        :param gallery_id: 画廊 ID。
+        :return: 受影响的行数 (0 表示已存在或出错，1 表示新插入)。
+        """
+        # 对于此关联表，"Upsert" 的逻辑与 "INSERT OR IGNORE" 完全相同。
+        # 此方法提供了更明确的语义名称。
+        return self.insert(scene_id, gallery_id)
 
     def get_by_scene_id(self, scene_id: int) -> List[ScenesGalleries]:
         """
@@ -102,6 +114,19 @@ class ScenesGalleriesDAO:
         try:
             query = "SELECT * FROM scenes_galleries WHERE scene_id = ?"
             self._execute(query, (scene_id,))
+            rows = self._cursor.fetchall()
+            return [self._row_to_scenes_galleries(row) for row in rows]
+        except sqlite3.Error as e:
+            print(f"检索时出错: {e}")
+            return []
+
+    def get_by_ids(self, scene_id: int, gallery_id: int) -> List[ScenesGalleries]:
+        """
+        根据 scene_id 查询所有关联记录。
+        """
+        try:
+            query = "SELECT * FROM scenes_galleries WHERE scene_id = ? AND gallery_id = ?"
+            self._execute(query, (scene_id, gallery_id))
             rows = self._cursor.fetchall()
             return [self._row_to_scenes_galleries(row) for row in rows]
         except sqlite3.Error as e:
@@ -120,6 +145,33 @@ class ScenesGalleriesDAO:
         except sqlite3.Error as e:
             print(f"检索时出错: {e}")
             return []
+
+    def update(self, old_scene_id: int, old_gallery_id: int, new_scene_id: int, new_gallery_id: int) -> int:
+        """
+        更新一条现有关联记录。
+        这会将一个存在的 (scene_id, gallery_id) 对替换为新的对。
+        :param old_scene_id: 要更新的原始场景 ID。
+        :param old_gallery_id: 要更新的原始画廊 ID。
+        :param new_scene_id: 新的场景 ID。
+        :param new_gallery_id: 新的画廊 ID。
+        :return: 更新的行数，如果更新失败则返回 0。
+        """
+        try:
+            query = """
+                UPDATE scenes_galleries
+                SET scene_id = ?, gallery_id = ?
+                WHERE scene_id = ? AND gallery_id = ?
+            """
+            params = (new_scene_id, new_gallery_id, old_scene_id, old_gallery_id)
+            self._execute(query, params)
+            row_count = self._cursor.rowcount
+            print(f"成功更新 {row_count} 条记录: "
+                  f"from (scene_id={old_scene_id}, gallery_id={old_gallery_id}) "
+                  f"to (scene_id={new_scene_id}, gallery_id={new_gallery_id})")
+            return row_count
+        except sqlite3.Error as e:
+            print(f"更新时出错: {e}")
+            return 0
 
     def delete(self, scene_id: int, gallery_id: int) -> int:
         """

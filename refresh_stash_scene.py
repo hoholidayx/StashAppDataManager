@@ -248,8 +248,47 @@ def update_scene_tags(dbm, scene_record, info):
     return True
 
 
-def update_scene_gallery():
-    return False
+def update_scene_gallery(dbm, scene_record, info: Movie):
+    """
+    更新短片剧照(画廊)。
+    1、从 dbm.folders_dao 查询 path 字段，包含格式 "fanart#{info.uniqueid}",不区分大小写
+    2. 找到匹配的 folders 记录后，再去 dbm.galleries_dao，查询 folder_id 匹配的记录
+    3. 更新 scenes_galleries 表，更新 scene-gallery的映射关系
+    :param dbm:
+    :param scene_record:
+    :param info:
+    :return:
+    """
+    search_pattern = f"%fanart#{info.uniqueid}"
+    logger.info(f"正在查询对应番号的剧照源文件夹: {search_pattern}")
+    folder_record_list = dbm.folders.get_by_path_pattern(search_pattern)
+    if folder_record_list is None or len(folder_record_list) == 0:
+        logger.warning("找不到对应的剧照源文件夹！")
+        return False
+    # 默认取第一个就行
+    fanart_folder_record = folder_record_list[0]
+    logger.info(f"找到对应的剧照源文件夹:{fanart_folder_record.path}")
+
+    gallery_record_list = dbm.galleries.get_by_folder_id(fanart_folder_record.id)
+    if gallery_record_list is None or len(gallery_record_list) == 0:
+        logger.warning("找不到对应的画廊！")
+        return False
+    # 默认取第一个就行
+    gallery_record = folder_record_list[0]
+    logger.info(f"找到对应的画廊:{gallery_record}")
+
+    # 检查是否已有相同映射记录
+    exists_scene_gallery_record = dbm.scenes_galleries.get_by_ids(scene_id=scene_record.id,
+                                                                  gallery_id=gallery_record.id)
+    if exists_scene_gallery_record is not None and len(exists_scene_gallery_record) > 0:
+        logger.info(f"scene gallery 映射表已存在相同映射记录！")
+        return True
+
+    scene_update_ret = dbm.scenes_galleries.update_or_insert(scene_id=scene_record.id, gallery_id=gallery_record.id)
+    logger.info(f"已更新 scene gallery 映射表！{scene_update_ret}")
+    if scene_update_ret == 0:
+        return False
+    return True
 
 
 def process_folder(folder_path):
@@ -285,6 +324,7 @@ def process_folder(folder_path):
 
     # 2. 链接数据库
     with Database(STASH_APP_SQLITE_DB_PATH) as dbm:
+        failed_item_count = 0
         logger.info(f"已链接数据库 {STASH_APP_SQLITE_DB_PATH}...")
         # 3. 更新标题：根据番号，从 files 表查找匹配的文件记录
         movie_src_file_basename = os.path.basename(movie_src_file)
@@ -315,6 +355,7 @@ def process_folder(folder_path):
         if title_update_ret:
             logger.info(f"标题更新成功:{old_title} ==> {scene_record.title}")
         else:
+            failed_item_count += 1
             logger.warning(f"标题更新失败")
 
         # 7. 更新短片发布时间
@@ -323,6 +364,7 @@ def process_folder(folder_path):
         if date_update_ret:
             logger.info(f"发行日期更新成功:{old_date} ==> {scene_record.date}")
         else:
+            failed_item_count += 1
             logger.warning(f"发行日期更新失败")
 
         # 8. 更新短片工作室
@@ -331,6 +373,7 @@ def process_folder(folder_path):
         if studio_update_ret:
             logger.info(f"短片工作室更新成功:{old_studio_id} ==> {scene_record.studio_id}")
         else:
+            failed_item_count += 1
             logger.warning(f"短片工作室更新失败")
 
         # 10. 更新标签
@@ -338,10 +381,16 @@ def process_folder(folder_path):
         if tags_update_ret:
             logger.info(f"短片标签更新成功")
         else:
+            failed_item_count += 1
             logger.warning(f"短片标签更新失败")
 
         # 9. 更新短片剧照(画廊)
-        gallery_update_ret = update_scene_gallery()
+        gallery_update_ret = update_scene_gallery(dbm, scene_record, movie_info)
+        if gallery_update_ret:
+            logger.info(f"短片剧照(画廊)更新成功")
+        else:
+            failed_item_count += 1
+            logger.warning(f"短片剧照(画廊)更新失败")
 
         # 2. 更新封面图
         cover_img = os.path.join(folder_path, SCENE_COVER_FILE_NAME)
@@ -350,6 +399,8 @@ def process_folder(folder_path):
             logger.info(f"准备使用图片 {cover_img} 更新短片封面...")
             update_ret = update_cover(dbm.scenes, cover_img)
             logger.info(f"封面更新结果:{update_ret}")
+
+    logger.info(f"===== 所有工作完成，其中失败项目 {failed_item_count} 件 =====")
 
 
 def main():

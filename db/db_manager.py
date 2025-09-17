@@ -3,6 +3,8 @@ from typing import Optional
 
 from models.blobs_dao import BlobsDAO
 from models.files_dao import FilesDAO
+from models.folders_dao import FoldersDAO
+from models.galleries_dao import GalleriesDAO
 from models.performers_dao import PerformersDAO
 from models.performers_scenes_dao import PerformersScenesDAO
 from models.scenes_dao import ScenesDAO
@@ -52,6 +54,8 @@ class Database:
         self.scenes_tags = ScenesTagsDAO(self._conn)
         self.studios = StudiosDAO(self._conn)
         self.tags = TagsDAO(self._conn)
+        self.folders = FoldersDAO(self._conn)
+        self.galleries = GalleriesDAO(self._conn)
 
         return self
 
