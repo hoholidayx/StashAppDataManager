@@ -6,6 +6,7 @@ from typing import List
 
 from MyLogger import CustomLogger
 from db.db_manager import Database
+from models.blobs_dao import Blobs
 from models.scenes_dao import ScenesDAO, Scenes
 from models.scenes_tags_dao import ScenesTags
 from models.studios_dao import StudiosDAO, Studios
@@ -80,9 +81,9 @@ def find_files_by_code(folder_path: str, movie_code: str, file_suffixes: List[st
     return found_files
 
 
-def update_cover(scenes_dao: ScenesDAO, img_path: str):
+def update_scene_cover(dbm: Database, scene_record: Scenes, img_path: str):
     """
-    更新短片封面
+    更新短片封面。
     :param img_path: 封面图路径
     :return: 更新结果
     """
@@ -92,7 +93,7 @@ def update_cover(scenes_dao: ScenesDAO, img_path: str):
         return False
 
     # 2. 解析文件 md5, 32 位
-    hash_md5 = ''
+    file_md5 = ''
     try:
         # 创建一个 MD5 哈希对象
         hash_md5 = hashlib.md5()
@@ -131,7 +132,15 @@ def update_cover(scenes_dao: ScenesDAO, img_path: str):
         logger.error(f"创建文件夹或复制文件失败: {e}", exc_info=True)
         return False
 
-    # 4. 用file_md5 更新 scenes 表中的 cover 字段
+    # 4. 用file_md5 更新 scenes 表中的 cover 字段，与 blobs 表
+    try:
+        scene_record.cover_blob = file_md5
+        dbm.scenes.update(scene_record)
+        blobs = Blobs(checksum=file_md5, blob=None)
+        dbm.blobs.insert(blobs)
+        dbm.commit()
+    except Exception as e:
+        logger.error(f"blob 数据记录写入失败: {e}", exc_info=True)
 
     return True
 
@@ -307,7 +316,7 @@ def update_scene_director(dbm, scene_record, movie_info):
     try:
         dbm.scenes.update(scene_record)
         dbm.scenes.commit()
-        logger.warning(f"已更新[导演]:{scene_record.director}")
+        logger.info(f"已更新[导演]:{scene_record.director}")
     except Exception as ex:
         logger.error(f"更新短片导演失败: {ex}", exc_info=True)
         return False
@@ -428,7 +437,7 @@ def process_folder(folder_path):
         if os.path.exists(cover_img):
             # 更新短片封面
             logger.info(f"准备使用图片 {cover_img} 更新短片封面...")
-            update_ret = update_cover(dbm.scenes, cover_img)
+            update_ret = update_scene_cover(dbm, scene_record, cover_img)
             logger.info(f"封面更新结果:{update_ret}")
 
     logger.info(f"===== 所有工作完成，其中失败项目 {failed_item_count} 件 =====")

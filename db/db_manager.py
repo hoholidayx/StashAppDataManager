@@ -74,3 +74,10 @@ class Database:
 
         # 关闭连接
         self._conn.close()
+
+    def commit(selfs) -> bool:
+        if selfs._conn:
+            selfs._conn.commit()
+            return True
+        else:
+            return False
