@@ -291,6 +291,29 @@ def update_scene_gallery(dbm, scene_record, info: Movie):
     return True
 
 
+def update_scene_director(dbm, scene_record, movie_info):
+    """
+        更新短片导演。
+        使用 nfo 的 director 更新到 scenes 表 director 字段
+        :param scene_dao:
+        :param scene_record:
+        :param info:
+        :return:更新是否成功
+    """
+    if not movie_info.director:
+        logger.warning(f"nfo 未解析出合法的[导演]字段:{movie_info.director}")
+        return False
+    scene_record.director = movie_info.director
+    try:
+        dbm.scenes.update(scene_record)
+        dbm.scenes.commit()
+        logger.warning(f"已更新[导演]:{scene_record.director}")
+    except Exception as ex:
+        logger.error(f"更新短片导演失败: {ex}", exc_info=True)
+        return False
+    return True
+
+
 def process_folder(folder_path):
     """
     一个处理文件夹的示例函数。
@@ -384,7 +407,7 @@ def process_folder(folder_path):
             failed_item_count += 1
             logger.warning(f"短片标签更新失败")
 
-        # 9. 更新短片剧照(画廊)
+        # 11. 更新短片剧照(画廊)
         gallery_update_ret = update_scene_gallery(dbm, scene_record, movie_info)
         if gallery_update_ret:
             logger.info(f"短片剧照(画廊)更新成功")
@@ -392,7 +415,15 @@ def process_folder(folder_path):
             failed_item_count += 1
             logger.warning(f"短片剧照(画廊)更新失败")
 
-        # 2. 更新封面图
+        # 12. 更新短片导演
+        director_update_ret = update_scene_director(dbm, scene_record, movie_info)
+        if director_update_ret:
+            logger.info(f"导演更新成功")
+        else:
+            failed_item_count += 1
+            logger.warning(f"导演更新失败！")
+
+        # 13. 更新封面图
         cover_img = os.path.join(folder_path, SCENE_COVER_FILE_NAME)
         if os.path.exists(cover_img):
             # 更新短片封面

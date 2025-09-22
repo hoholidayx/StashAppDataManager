@@ -30,7 +30,8 @@ class Movie:
                  country: Optional[str],
                  premiered: Optional[str],
                  studio: Optional[str],
-                 actors: List[Actor]):
+                 actors: List[Actor],
+                 director: Optional[str]):
         self.title = title
         self.runtime = runtime
         self.mpaa = mpaa
@@ -41,6 +42,7 @@ class Movie:
         self.premiered = premiered
         self.studio = studio
         self.actors = actors
+        self.director = director
 
     def __repr__(self) -> str:
         return (f"Movie(title='{self.title}', uniqueid='{self.uniqueid}'"
@@ -63,6 +65,7 @@ class MovieBuilder:
         self._premiered: Optional[str] = None
         self._studio: Optional[str] = None
         self._actors: List[Actor] = []
+        self.director: Optional[str] = None
 
     def set_title(self, value: Optional[str]) -> 'MovieBuilder':
         self._title = value
@@ -104,6 +107,10 @@ class MovieBuilder:
         self._actors = value
         return self
 
+    def set_director(self, value: Optional[str]) -> 'MovieBuilder':
+        self.director = value
+        return self
+
     def build(self) -> Movie:
         """
         构建并返回一个Movie实例。
@@ -118,7 +125,8 @@ class MovieBuilder:
             country=self._country,
             premiered=self._premiered,
             studio=self._studio,
-            actors=self._actors
+            actors=self._actors,
+            director=self.director
         )
 
 
@@ -167,6 +175,7 @@ def parse_nfo_to_movie(file_path: str) -> Movie:
         builder.set_country(root.find('country').text if root.find('country') is not None else None)
         builder.set_premiered(root.find('premiered').text if root.find('premiered') is not None else None)
         builder.set_studio(root.find('studio').text if root.find('studio') is not None else None)
+        builder.set_director(root.find('director').text if root.find('director') is not None else None)
 
         return builder.build()
 
