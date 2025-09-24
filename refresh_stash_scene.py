@@ -283,7 +283,7 @@ def update_scene_gallery(dbm, scene_record, info: Movie):
         logger.warning("找不到对应的画廊！")
         return False
     # 默认取第一个就行
-    gallery_record = folder_record_list[0]
+    gallery_record = gallery_record_list[0]
     logger.info(f"找到对应的画廊:{gallery_record}")
 
     # 检查是否已有相同映射记录
