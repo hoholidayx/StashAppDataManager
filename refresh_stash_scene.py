@@ -440,6 +440,12 @@ def process_folder(folder_path):
             update_ret = update_scene_cover(dbm, scene_record, cover_img)
             logger.info(f"封面更新结果:{update_ret}")
 
+        # 14. 更新工作室代码（番号）
+
+        # 15. 更新集合（影片系列）
+
+        # 16. 更新演员信息
+
     logger.info(f"===== 所有工作完成，其中失败项目 {failed_item_count} 件 =====")
 
 
