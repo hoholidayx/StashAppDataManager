@@ -323,6 +323,25 @@ def update_scene_director(dbm, scene_record, movie_info):
     return True
 
 
+def update_scene_code(dbm, scene_record, info):
+    """
+      更新短片番号。
+      使用 nfo 的 uniqueid 更新到 scenes 表 code 字段
+      :param dbm:
+      :param scene_record:
+      :param info:
+      :return:更新是否成功
+    """
+    scene_record.code = info.uniqueid
+    try:
+        dbm.scenes.update(scene_record)
+        dbm.scenes.commit()
+    except Exception as ex:
+        logger.error(f"更新短片番号失败: {ex}", exc_info=True)
+        return False
+    return True
+
+
 def process_folder(folder_path):
     """
     一个处理文件夹的示例函数。
@@ -441,6 +460,12 @@ def process_folder(folder_path):
             logger.info(f"封面更新结果:{update_ret}")
 
         # 14. 更新工作室代码（番号）
+        scene_code_ret = update_scene_code(dbm, scene_record, movie_info)
+        if scene_code_ret:
+            logger.info(f"更新工作室代码（番号:{movie_info.uniqueid}）更新成功")
+        else:
+            failed_item_count += 1
+            logger.warning(f"更新工作室代码（番号）更新失败")
 
         # 15. 更新集合（影片系列）
 
