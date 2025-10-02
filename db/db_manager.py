@@ -5,6 +5,8 @@ from models.blobs_dao import BlobsDAO
 from models.files_dao import FilesDAO
 from models.folders_dao import FoldersDAO
 from models.galleries_dao import GalleriesDAO
+from models.groups_dao import GroupsDAO
+from models.groups_scenes_dao import GroupsScenesDAO
 from models.performers_dao import PerformersDAO
 from models.performers_scenes_dao import PerformersScenesDAO
 from models.scenes_dao import ScenesDAO
@@ -35,6 +37,8 @@ class Database:
         self.scenes_tags: Optional[ScenesTagsDAO] = None
         self.studios: Optional[StudiosDAO] = None
         self.tags: Optional[TagsDAO] = None
+        self.groups: Optional[GroupsDAO] = None
+        self.groups_scenes: Optional[GroupsScenesDAO] = None
 
     def __enter__(self):
         """
@@ -56,6 +60,8 @@ class Database:
         self.tags = TagsDAO(self._conn)
         self.folders = FoldersDAO(self._conn)
         self.galleries = GalleriesDAO(self._conn)
+        self.groups = GroupsDAO(self._conn)
+        self.groups_scenes = GroupsScenesDAO(self._conn)
 
         return self
 

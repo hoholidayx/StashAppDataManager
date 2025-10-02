@@ -7,6 +7,7 @@ from typing import List
 from MyLogger import CustomLogger
 from db.db_manager import Database
 from models.blobs_dao import Blobs
+from models.groups_dao import Groups
 from models.scenes_dao import ScenesDAO, Scenes
 from models.scenes_tags_dao import ScenesTags
 from models.studios_dao import StudiosDAO, Studios
@@ -19,7 +20,7 @@ logger = CustomLogger(__name__)
 # StashApp 存储 blobs 的路径
 STASH_APP_BLOBS_DIRS = '/Users/hoholiday/Downloads/stashapp/blobs'
 # StashApp 数据库文件路径
-STASH_APP_SQLITE_DB_PATH = '/Users/hoholiday/Projects/Python/StashAppManager/models/stash-go-dev.sqlite'
+STASH_APP_SQLITE_DB_PATH = '/Users/hoholiday/Projects/Python/StashAppManager/stash-go-dev.sqlite'
 # 电影文件后缀
 SCENE_FILE_SUBFIX = ['.mp4', '.mkv', '.avi', '.mov']
 # 影片的封面图片文件名
@@ -342,6 +343,54 @@ def update_scene_code(dbm, scene_record, info):
     return True
 
 
+def update_scene_groups(dbm, scene_record, info):
+    """
+    更新集合（影片系列）
+    1、解析 info.movie_set 集合，从 groups 查询 name 字段是否已存在对应的集合
+    2、如不存在创建新集合
+    3、更新 groups_scenes 表，添加映射关系（如不存在）
+    :param dbm:
+    :param scene_record:
+    :param info: MovieInfo
+    :return:
+    """
+
+    movie_set = info.movie_set
+    if movie_set is None:
+        logger.warning(f"影片信息无任何集合信息!")
+        return False
+    logger.info(f"准备更新影片集合：{movie_set}")
+
+    # 检查影片集合是否已存在
+    db_result = dbm.groups.get_by_name(movie_set.name)
+    group_id = None
+    if db_result is None:
+        logger.info(f"影片集合[{movie_set.name}]不存在,准备创建...")
+        group_obj = Groups(name=movie_set.name)
+        group_id = dbm.groups.insert(group_obj)
+        if group_id is None:
+            logger.error(f"影片集合[{group_obj}]创建失败！")
+            return False
+        logger.info(f"影片集合[{group_obj}]创建成功！")
+
+    # 重新查询数据库
+    group_obj = dbm.groups.get_by_name(movie_set.name)
+    if group_obj is None:
+        logger.error(f"影片集合[{movie_set.name}]查询数据库失败！")
+        return False
+
+    # 建立映射
+    # 检查映射记录是否已存在
+    groups_scenes_record = dbm.groups_scenes.get_by_ids(scene_id=scene_record.id, group_id=group_obj.id)
+    if groups_scenes_record is not None:
+        # 记录已存在，直接返回成功
+        logger.info(f"影片集合-影片映射已存在！{groups_scenes_record}")
+        return True
+    # 无映射记录，新建
+    row_count = dbm.groups_scenes.insert(scene_id=scene_record.id, group_id=group_obj.id)
+    return row_count > 0
+
+
 def process_folder(folder_path):
     """
     一个处理文件夹的示例函数。
@@ -468,6 +517,12 @@ def process_folder(folder_path):
             logger.warning(f"更新工作室代码（番号）更新失败")
 
         # 15. 更新集合（影片系列）
+        scene_group_ret = update_scene_groups(dbm, scene_record, movie_info)
+        if scene_group_ret:
+            logger.info(f"更新集合（影片系列）更新成功")
+        else:
+            failed_item_count += 1
+            logger.warning(f"更新集合（影片系列）更新失败")
 
         # 16. 更新演员信息
 

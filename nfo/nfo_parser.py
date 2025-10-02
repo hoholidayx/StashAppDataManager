@@ -2,6 +2,18 @@ import xml.etree.ElementTree as ET
 from typing import List, Optional
 
 
+class MovieSet:
+    """
+    封装影片集合的结构体
+    """
+
+    def __init__(self, name: str):
+        self.name = name
+
+    def __repr__(self) -> str:
+        return f"MovieSet(name='{self.name}')"
+
+
 class Actor:
     """
     封装演员信息的结构体。
@@ -31,7 +43,8 @@ class Movie:
                  premiered: Optional[str],
                  studio: Optional[str],
                  actors: List[Actor],
-                 director: Optional[str]):
+                 director: Optional[str],
+                 movie_set: Optional[MovieSet]):
         self.title = title
         self.runtime = runtime
         self.mpaa = mpaa
@@ -43,6 +56,7 @@ class Movie:
         self.studio = studio
         self.actors = actors
         self.director = director
+        self.movie_set = movie_set
 
     def __repr__(self) -> str:
         return (f"Movie(title='{self.title}', uniqueid='{self.uniqueid}'"
@@ -66,6 +80,7 @@ class MovieBuilder:
         self._studio: Optional[str] = None
         self._actors: List[Actor] = []
         self.director: Optional[str] = None
+        self.movie_set: Optional[MovieSet] = None
 
     def set_title(self, value: Optional[str]) -> 'MovieBuilder':
         self._title = value
@@ -111,6 +126,10 @@ class MovieBuilder:
         self.director = value
         return self
 
+    def set_movie_set(self, value: Optional[MovieSet]) -> 'MovieBuilder':
+        self.movie_set = value
+        return self
+
     def build(self) -> Movie:
         """
         构建并返回一个Movie实例。
@@ -126,7 +145,8 @@ class MovieBuilder:
             premiered=self._premiered,
             studio=self._studio,
             actors=self._actors,
-            director=self.director
+            director=self.director,
+            movie_set=self.movie_set,
         )
 
 
@@ -169,6 +189,11 @@ def parse_nfo_to_movie(file_path: str) -> Movie:
             thumb = thumb_elem.text if thumb_elem is not None else None
             actors.append(Actor(name=name, thumb=thumb))
         builder.set_actors(actors)
+
+        # 解析影片集合
+        set_root = root.find('set')
+        if set_root is not None and set_root.find('name') is not None:
+            builder.set_movie_set(MovieSet(set_root.find('name').text))
 
         # 解析其他简单字段
         builder.set_mpaa(root.find('mpaa').text if root.find('mpaa') is not None else None)
