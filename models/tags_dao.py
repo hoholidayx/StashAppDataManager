@@ -142,7 +142,7 @@ class TagsDAO:
 
     def get_by_name(self, tag_name: str) -> List[Tags]:
         """
-        根据 ID 查询单条记录。
+        根据 name 查询单条记录。
         """
         try:
             query = "SELECT * FROM tags WHERE name = ?"

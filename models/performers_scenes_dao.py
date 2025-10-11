@@ -120,6 +120,19 @@ class PerformersScenesDAO:
             print(f"检索时出错: {e}")
             return []
 
+    def get_by_ids(self, scene_id: int, performer_id: int) -> Optional[PerformersScenes]:
+        """
+        根据 scene_id 和 performer_id 联合主键查询单条记录。
+        """
+        try:
+            query = "SELECT * FROM performers_scenes WHERE scene_id = ? AND performer_id = ?"
+            self._execute(query, (scene_id, performer_id))
+            row = self._cursor.fetchone()
+            return self._row_to_performers_scenes(row)
+        except sqlite3.Error as e:
+            print(f"检索时出错: {e}")
+            return None
+
     def delete(self, performer_id: int, scene_id: int) -> int:
         """
         根据 performer_id 和 scene_id 删除一条关联记录。

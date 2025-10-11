@@ -203,6 +203,19 @@ class PerformersDAO:
         row = self._cursor.fetchone()
         return self._row_to_performer(row) if row else None
 
+    def get_by_name(self, performers_name: str) -> List[Performers]:
+        """
+        根据 name 查询单条记录。
+        """
+        try:
+            query = "SELECT * FROM performers WHERE name = ?"
+            self._execute(query, (performers_name,))
+            rows = self._cursor.fetchall()
+            return [self._row_to_performer(row) for row in rows]
+        except sqlite3.Error as e:
+            print(f"检索 name 时出错: {e}")
+            return list()
+
     def get_all(self) -> List[Performers]:
         """
         查询所有记录。

@@ -8,6 +8,7 @@ from MyLogger import CustomLogger
 from db.db_manager import Database
 from models.blobs_dao import Blobs
 from models.groups_dao import Groups
+from models.performers_dao import Performers
 from models.scenes_dao import ScenesDAO, Scenes
 from models.scenes_tags_dao import ScenesTags
 from models.studios_dao import StudiosDAO, Studios
@@ -391,6 +392,63 @@ def update_scene_groups(dbm, scene_record, info):
     return row_count > 0
 
 
+def update_scene_performers(dbm, scene_record, movie_info):
+    """
+     更新短片演员。
+     1. 遍历 info 中的 actors 演员列表
+     2. 检查 performers 表对应名称 name 的演员是否已存在
+     3. 演员记录不存在，先在 performers 创建记录
+     4. 最后更新 performers_scenes 表建立映射关系
+     :return:更新是否成功
+    """
+    performers = movie_info.actors
+    if performers is None or len(performers) == 0:
+        logger.warning(f"影片信息无任何演员!")
+        return False
+    logger.info(f"准备更新 {len(performers)} 个演员")
+
+    # 检查演员是否都存在
+    for performer in performers:
+        db_result = dbm.performers.get_by_name(performer.name)
+        if db_result is None or len(db_result) == 0:
+            logger.info(f"演员[{performer}]不存在,准备创建...")
+            performer_obj = Performers(name=performer.name)
+            performer_obj_id = dbm.performers.insert(performer_obj)
+            if performer_obj_id is None:
+                logger.error(f"演员[{performer}]创建失败！")
+                # 标签创建异常，尝试下一个
+                continue
+            logger.info(f"演员[{performer}]创建成功, id:{performer_obj_id}！")
+
+    # 重新查询数据库
+    performer_obj_list = list()
+    for performer in performers:
+        performer_objs = dbm.performers.get_by_name(performer.name)
+        if performer_objs is None or len(performer_objs) == 0:
+            # 查询不到演员，跳过
+            logger.warning(f"演员[{performer}]不存在，跳过")
+            continue
+        # 取匹配的第一个就行
+        performer_obj_list.append(performer_objs[0])
+
+    # 建立映射
+    new_scene_performer_record_count = 0
+    old_scene_performer_record_count = 0
+    for performer_obj in performer_obj_list:
+        # 检查映射记录是否已存在
+        scene_performer_record = dbm.performers_scenes.get_by_ids(scene_id=scene_record.id,
+                                                                  performer_id=performer_obj.id)
+        if scene_performer_record is not None:
+            old_scene_performer_record_count += 1
+            continue
+        # 无映射记录，新建
+        row_count = dbm.performers_scenes.insert(performer_id=performer_obj.id, scene_id=scene_record.id)
+        new_scene_performer_record_count += row_count
+    logger.info(f"已完成演员更新,新增数量:{new_scene_performer_record_count}"
+                f"，已有数量:{old_scene_performer_record_count}")
+    return True
+
+
 def process_folder(folder_path):
     """
     一个处理文件夹的示例函数。
@@ -525,6 +583,12 @@ def process_folder(folder_path):
             logger.warning(f"更新集合（影片系列）更新失败")
 
         # 16. 更新演员信息
+        scene_performer_ret = update_scene_performers(dbm, scene_record, movie_info)
+        if scene_performer_ret:
+            logger.info(f"演员信息更新成功")
+        else:
+            failed_item_count += 1
+            logger.warning(f"演员信息更新失败")
 
     logger.info(f"===== 所有工作完成，其中失败项目 {failed_item_count} 件 =====")
 

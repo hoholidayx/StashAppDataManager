@@ -23,6 +23,9 @@ class Actor:
         self.name = name
         self.thumb = thumb
 
+    def __str__(self):
+        return self.__repr__()
+
     def __repr__(self) -> str:
         return f"Actor(name='{self.name}', thumb='{self.thumb}')"
 
