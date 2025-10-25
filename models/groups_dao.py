@@ -121,7 +121,7 @@ class GroupsDAO:
         """
         根据 name 查询单条记录。
         """
-        query = "SELECT * FROM groups WHERE name = ?"
+        query = "SELECT * FROM groups WHERE NORMALIZE(name) = NORMALIZE(?)"
         self._execute(query, (group_name,))
         row = self._cursor.fetchone()
         return self._row_to_groups(row) if row else None

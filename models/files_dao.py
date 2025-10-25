@@ -139,7 +139,7 @@ class FilesDAO:
         根据文件称，查询basename等于该名称的记录
         """
         # 使用 LIKE 和通配符 (%) 来查找包含指定字符串的记录
-        query = "SELECT * FROM files WHERE basename is ?"
+        query = "SELECT * FROM files WHERE NORMALIZE(files.basename) is NORMALIZE(?)"
         self._execute(query, (basename,))
         row = self._cursor.fetchone()
         return self._row_to_files(row) if row else None

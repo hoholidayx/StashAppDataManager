@@ -98,7 +98,7 @@ class FoldersDAO:
         根据模板匹配，查询查询path字段符合条件的所有记录。
         """
         # 查询不区分大小写
-        query = "SELECT * FROM folders WHERE upper(path) LIKE upper(?)"
+        query = "SELECT * FROM folders WHERE upper(NORMALIZE(path)) LIKE upper(NORMALIZE(?))"
         self._execute(query, (path_pattern,))
         rows = self._cursor.fetchall()
         return [self._row_to_folders(row) for row in rows]

@@ -1,4 +1,5 @@
 import sqlite3
+import unicodedata
 from typing import Optional
 
 from models.blobs_dao import BlobsDAO
@@ -15,6 +16,14 @@ from models.scenes_galleries_dao import ScenesGalleriesDAO
 from models.scenes_tags_dao import ScenesTagsDAO
 from models.studios_dao import StudiosDAO
 from models.tags_dao import TagsDAO
+
+
+def normalize_text(text):
+    """将文本规范化为 NFC 形式 (推荐用于比较)。"""
+    if text is None:
+        return None
+    # 统一转换为 NFC 组合形式
+    return unicodedata.normalize('NFC', text)
 
 
 class Database:
@@ -46,6 +55,11 @@ class Database:
         建立数据库连接并实例化所有 DAO。
         """
         self._conn = sqlite3.connect(self.db_path)
+        # 注册 NORMALIZE 函数
+        # 第一个参数是 SQL 中使用的函数名
+        # 第二个参数是函数接受的参数个数
+        # 第三个参数是对应的 Python 函数
+        self._conn.create_function("NORMALIZE", 1, normalize_text)
 
         # 实例化所有 DAO，并将相同的连接传递给它们
         self.blobs = BlobsDAO(self._conn)

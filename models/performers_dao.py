@@ -208,7 +208,7 @@ class PerformersDAO:
         根据 name 查询单条记录。
         """
         try:
-            query = "SELECT * FROM performers WHERE name = ?"
+            query = "SELECT * FROM performers WHERE NORMALIZE(name) = NORMALIZE(?)"
             self._execute(query, (performers_name,))
             rows = self._cursor.fetchall()
             return [self._row_to_performer(row) for row in rows]

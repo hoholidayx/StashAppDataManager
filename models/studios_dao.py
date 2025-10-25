@@ -153,7 +153,7 @@ class StudiosDAO:
         根据 ID 查询单条记录。
         """
         try:
-            query = "SELECT * FROM studios WHERE name = ?"
+            query = "SELECT * FROM studios WHERE NORMALIZE(name) = NORMALIZE(?)"
             self._execute(query, (studio_name,))
             row = self._cursor.fetchone()
             return self._row_to_studios(row)

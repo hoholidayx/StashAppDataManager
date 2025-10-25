@@ -2,6 +2,8 @@ import argparse
 import hashlib
 import os
 import shutil
+from collections import deque
+from datetime import datetime
 from typing import List
 
 from MyLogger import CustomLogger
@@ -610,6 +612,104 @@ def main():
 
     # 调用处理函数
     process_folder(args.folder_path)
+
+
+def find_nfo_folders_by_time_bfs(start_dir, start_time, end_time=None):
+    """
+    使用广度优先搜索遍历所有子文件夹。
+    若文件夹内包含 .nfo 文件，且该文件的修改时间在指定的区间内，
+    则记录该文件夹的完整路径。
+
+    Args:
+        start_dir (str): 开始遍历的根目录路径。
+        start_time (datetime): 更新时间区间的起始时间 (包含)。
+                                必须是 datetime 对象，建议使用时区信息 (如 UTC 或本地时区)。
+        end_time (datetime, optional): 更新时间区间的结束时间 (不包含)。
+                                       如果为 None，则区间截止到当前时间。默认为 None。
+
+    Returns:
+        list: 包含符合时间要求的 .nfo 文件的所有文件夹的完整路径列表。
+    """
+    # 确保起始路径存在
+    if not os.path.isdir(start_dir):
+        print(f"错误: 路径 '{start_dir}' 不存在或不是一个目录。")
+        return []
+
+    # 统一处理时间区间
+    # 如果 end_time 为 None，则设置为当前时间 (并添加时区信息以便比较)
+    if end_time is None:
+        # 使用 timezone.utc 或 datetime.now(timezone.utc) 是更安全的做法
+        # 但为了兼容 getmtime 返回的本地时间戳，我们在这里保持一致性，如果输入没有时区，则假设是本地时间
+        end_time = datetime.now()
+        if end_time.tzinfo is None or end_time.tzinfo.utcoffset(end_time) is None:
+            # 假设没有时区信息的输入时间是本地时间
+            pass
+        else:
+            # 如果有明确的时区信息，需要转换为秒级时间戳，os.path.getmtime返回的是本地时间戳
+            pass
+
+    # 将 datetime 对象转换为 Unix 时间戳 (秒)
+    # 确保所有时间都转换为可比较的 UTC 时间戳，以便与 os.path.getmtime 返回的秒数进行比较
+    # 注意：os.path.getmtime 返回的是文件最后修改时间的“时间戳”，它通常是基于操作系统的本地时间。
+    # 为了简化，我们直接将输入的 datetime 对象也转换为时间戳进行比较。
+    # 注意：如果输入时间带有不同时区，可能需要额外的时区转换步骤来保证精确性。
+    try:
+        start_timestamp = start_time.timestamp()
+        end_timestamp = end_time.timestamp()
+    except ValueError as e:
+        print(f"时间参数转换错误，请确保 datetime 对象正确: {e}")
+        return []
+
+    if start_timestamp >= end_timestamp:
+        print("警告: 起始时间必须早于结束时间。")
+        return []
+
+    # 结果列表
+    result_folders = []
+
+    # 使用双端队列 (deque) 实现 BFS 队列
+    queue = deque([start_dir])
+
+    while queue:
+        # 1. 弹出当前要处理的文件夹路径（广度优先）
+        current_dir = queue.popleft()
+
+        # 2. 检查当前文件夹是否包含符合时间要求的 .nfo 文件
+        found_nfo_in_time = False
+        try:
+            for item in os.listdir(current_dir):
+                if item.lower().endswith(".nfo"):
+                    item_path = os.path.join(current_dir, item)
+
+                    # 获取【文件夹】的最后修改时间戳
+                    mod_timestamp = os.path.getmtime(current_dir)
+
+                    # 检查修改时间是否在区间内： [start_time, end_time)
+                    if start_timestamp <= mod_timestamp < end_timestamp:
+                        # 找到了符合时间要求的 .nfo 文件
+                        result_folders.append(current_dir)
+                        found_nfo_in_time = True
+                        # 找到后记录路径，并继续遍历下一个节点
+                        break  # 跳出内层循环，检查下一个要处理的文件夹
+
+            # 3. 如果当前文件夹没有找到符合要求的 .nfo 文件，则遍历其子文件夹并加入队列
+            if not found_nfo_in_time:
+                for item in os.listdir(current_dir):
+                    item_path = os.path.join(current_dir, item)
+                    # 检查是否是目录
+                    if os.path.isdir(item_path):
+                        # 将子目录加入队列，等待后续处理
+                        queue.append(item_path)
+
+        except PermissionError:
+            print(f"警告: 没有权限访问 '{current_dir}'，已跳过。")
+        except FileNotFoundError:
+            # 路径在检查时可能被删除
+            pass
+        except Exception as e:
+            print(f"处理 '{current_dir}' 时发生错误: {e}")
+
+    return result_folders
 
 
 if __name__ == '__main__':

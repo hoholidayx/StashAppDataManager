@@ -145,7 +145,7 @@ class TagsDAO:
         根据 name 查询单条记录。
         """
         try:
-            query = "SELECT * FROM tags WHERE name = ?"
+            query = "SELECT * FROM tags WHERE NORMALIZE(name) = NORMALIZE(?)"
             self._execute(query, (tag_name,))
             rows = self._cursor.fetchall()
             return [self._row_to_tags(row) for row in rows]
